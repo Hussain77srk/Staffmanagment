@@ -1,0 +1,1026 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>نظام إدارة موظفي المدرسة</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#5D5CDE',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700&display=swap');
+        
+        body {
+            font-family: 'Tajawal', sans-serif;
+        }
+        
+        /* إعدادات وضع الظلام والنهار */
+        .dark {
+            color-scheme: dark;
+        }
+        
+        /* أنماط إضافية */
+        .whatsapp-btn {
+            background-color: #25D366;
+        }
+        
+        .phone-btn {
+            background-color: #0088cc;
+        }
+        
+        .dark .employee-card {
+            background-color: #2d3748;
+            border-color: #4a5568;
+        }
+        
+        .light .employee-card {
+            background-color: white;
+            border-color: #e2e8f0;
+        }
+    </style>
+</head>
+<body class="min-h-screen transition-colors duration-300 bg-gray-100 dark:bg-gray-900 dark:text-white">
+    <div class="container mx-auto px-4 py-8">
+        <header class="flex flex-col md:flex-row justify-between items-center mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-primary">نظام إدارة موظفي المدرسة</h1>
+                <p class="text-gray-600 dark:text-gray-300">قاعدة بيانات شاملة للموظفين</p>
+            </div>
+            <div class="flex items-center mt-4 md:mt-0">
+                <button id="theme-toggle" class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 mr-4">
+                    <i class="fas fa-moon dark:hidden"></i>
+                    <i class="fas fa-sun hidden dark:block"></i>
+                </button>
+                <div class="flex">
+                    <button id="export-btn" class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded ml-2 flex items-center">
+                        <i class="fas fa-file-export mr-2"></i> تصدير Excel
+                    </button>
+                    <label for="import-file" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded ml-2 cursor-pointer flex items-center">
+                        <i class="fas fa-file-import mr-2"></i> استيراد CSV
+                        <input type="file" id="import-file" class="hidden" accept=".csv,.xlsx">
+                    </label>
+                    <button id="add-employee-btn" class="bg-primary hover:bg-indigo-700 text-white px-4 py-2 rounded flex items-center">
+                        <i class="fas fa-user-plus mr-2"></i> إضافة موظف
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- قسم البحث -->
+        <div class="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+            <h2 class="text-xl font-semibold mb-4">البحث المتقدم</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                    <label for="search-name" class="block mb-1">الاسم</label>
+                    <input type="text" id="search-name" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                </div>
+                <div>
+                    <label for="search-position" class="block mb-1">المنصب</label>
+                    <input type="text" id="search-position" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                </div>
+                <div>
+                    <label for="search-department" class="block mb-1">القسم</label>
+                    <select id="search-department" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                        <option value="">الكل</option>
+                        <option value="الإدارة">الإدارة</option>
+                        <option value="المعلمين">المعلمين</option>
+                        <option value="الصيانة">الصيانة</option>
+                        <option value="الأمن">الأمن</option>
+                        <option value="المكتبة">المكتبة</option>
+                    </select>
+                </div>
+            </div>
+            <div class="mt-4 flex justify-center">
+                <button id="search-btn" class="bg-primary hover:bg-indigo-700 text-white px-6 py-2 rounded">
+                    <i class="fas fa-search mr-2"></i> بحث
+                </button>
+                <button id="reset-search-btn" class="bg-gray-600 hover:bg-gray-700 text-white px-6 py-2 rounded mr-4">
+                    <i class="fas fa-redo mr-2"></i> إعادة ضبط
+                </button>
+            </div>
+        </div>
+
+        <!-- قسم الإحصاءات -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                <h3 class="text-lg font-semibold mb-2">إجمالي الموظفين</h3>
+                <p id="total-employees" class="text-3xl font-bold text-primary">0</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                <h3 class="text-lg font-semibold mb-2">المعلمين</h3>
+                <p id="teachers-count" class="text-3xl font-bold text-green-600">0</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                <h3 class="text-lg font-semibold mb-2">الإداريين</h3>
+                <p id="admin-count" class="text-3xl font-bold text-blue-600">0</p>
+            </div>
+            <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
+                <h3 class="text-lg font-semibold mb-2">الدعم والصيانة</h3>
+                <p id="support-count" class="text-3xl font-bold text-yellow-600">0</p>
+            </div>
+        </div>
+
+        <!-- قائمة الموظفين -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow">
+            <div class="p-4 border-b dark:border-gray-700">
+                <h2 class="text-xl font-semibold">قائمة الموظفين</h2>
+            </div>
+            <div id="employees-container" class="p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                <!-- سيتم إضافة بطاقات الموظفين هنا ديناميكيًا -->
+                <div class="text-center p-10 text-gray-500 dark:text-gray-400">
+                    جاري تحميل البيانات...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- نموذج إضافة/تعديل الموظف -->
+    <div id="employee-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+                <h2 id="modal-title" class="text-xl font-semibold">إضافة موظف جديد</h2>
+                <button id="close-modal" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <form id="employee-form" class="p-4">
+                <input type="hidden" id="employee-id">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label for="employee-name" class="block mb-1">الاسم الكامل <span class="text-red-500">*</span></label>
+                        <input type="text" id="employee-name" required class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                    </div>
+                    <div>
+                        <label for="employee-national-id" class="block mb-1">رقم الهوية <span class="text-red-500">*</span></label>
+                        <input type="text" id="employee-national-id" required class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                    </div>
+                    <div>
+                        <label for="employee-position" class="block mb-1">المنصب <span class="text-red-500">*</span></label>
+                        <input type="text" id="employee-position" required class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                    </div>
+                    <div>
+                        <label for="employee-department" class="block mb-1">القسم <span class="text-red-500">*</span></label>
+                        <select id="employee-department" required class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                            <option value="">اختر القسم</option>
+                            <option value="الإدارة">الإدارة</option>
+                            <option value="المعلمين">المعلمين</option>
+                            <option value="الصيانة">الصيانة</option>
+                            <option value="الأمن">الأمن</option>
+                            <option value="المكتبة">المكتبة</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="employee-phone" class="block mb-1">رقم الهاتف <span class="text-red-500">*</span></label>
+                        <input type="tel" id="employee-phone" required class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                    </div>
+                    <div>
+                        <label for="employee-whatsapp" class="block mb-1">رقم الواتساب</label>
+                        <input type="tel" id="employee-whatsapp" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                    </div>
+                    <div>
+                        <label for="employee-email" class="block mb-1">البريد الإلكتروني</label>
+                        <input type="email" id="employee-email" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                    </div>
+                    <div>
+                        <label for="employee-hire-date" class="block mb-1">تاريخ التعيين <span class="text-red-500">*</span></label>
+                        <input type="date" id="employee-hire-date" required class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                    </div>
+                </div>
+                <div class="mb-4">
+                    <label for="employee-subjects" class="block mb-1">المواد التي يدرسها (للمعلمين)</label>
+                    <input type="text" id="employee-subjects" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base" placeholder="مثال: الرياضيات، العلوم، اللغة العربية">
+                </div>
+                <div class="mb-4">
+                    <label for="employee-qualifications" class="block mb-1">المؤهلات والشهادات</label>
+                    <textarea id="employee-qualifications" rows="3" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base"></textarea>
+                </div>
+                <div class="mb-4">
+                    <label for="employee-notes" class="block mb-1">ملاحظات إضافية</label>
+                    <textarea id="employee-notes" rows="3" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base"></textarea>
+                </div>
+                <div class="flex justify-end">
+                    <button type="button" id="cancel-form" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded ml-2">
+                        إلغاء
+                    </button>
+                    <button type="submit" class="bg-primary hover:bg-indigo-700 text-white px-4 py-2 rounded">
+                        حفظ البيانات
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- نموذج تفاصيل الموظف -->
+    <div id="employee-details-modal" class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center hidden z-50">
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div class="p-4 border-b dark:border-gray-700 flex justify-between items-center">
+                <h2 id="details-title" class="text-xl font-semibold">تفاصيل الموظف</h2>
+                <button id="close-details" class="text-gray-500 hover:text-gray-700 dark:text-gray-300 dark:hover:text-gray-100">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div id="employee-details-content" class="p-4">
+                <!-- سيتم إضافة تفاصيل الموظف هنا ديناميكيًا -->
+            </div>
+            <div class="p-4 border-t dark:border-gray-700 flex justify-end">
+                <button id="close-details-btn" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded">
+                    إغلاق
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // تهيئة Firebase
+        // تكوين مشروع Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCU6dMDS3VDBCE_junCsoDieTFwED7QoXs",
+            authDomain: "staff-1672b.firebaseapp.com",
+            databaseURL: "https://staff-1672b-default-rtdb.firebaseio.com",
+            projectId: "staff-1672b",
+            storageBucket: "staff-1672b.appspot.com",
+            messagingSenderId: "648572760209",
+            appId: "1:648572760209:web:507cab0aa4ee8e4dcd4f30"
+        };
+        
+        // تهيئة Firebase
+        let db = null;
+        let firestoreInitialized = false;
+        
+        try {
+            firebase.initializeApp(firebaseConfig);
+            db = firebase.firestore();
+            firestoreInitialized = true;
+            console.log("تم تهيئة Firebase بنجاح");
+        } catch (e) {
+            console.error("حدث خطأ أثناء تهيئة Firebase:", e);
+        }
+        
+        // بيانات تجريبية للعرض (تستخدم في حالة عدم توفر Firebase)
+        const demoEmployees = [
+            {
+                id: "1",
+                name: "أحمد محمد علي",
+                nationalId: "1000123456",
+                position: "مدير المدرسة",
+                department: "الإدارة",
+                phone: "0501234567",
+                whatsapp: "0501234567",
+                email: "ahmed.ali@school.edu",
+                hireDate: "2018-08-15",
+                subjects: "",
+                qualifications: "دكتوراه في الإدارة التربوية، 15 سنة خبرة في التعليم",
+                notes: "يشرف على جميع أقسام المدرسة"
+            },
+            {
+                id: "2",
+                name: "سارة عبد الله الحمد",
+                nationalId: "1000789012",
+                position: "معلمة رياضيات",
+                department: "المعلمين",
+                phone: "0507890123",
+                whatsapp: "0507890123",
+                email: "sara.hamad@school.edu",
+                hireDate: "2019-09-01",
+                subjects: "رياضيات، إحصاء",
+                qualifications: "بكالوريوس رياضيات، دبلوم تربوي",
+                notes: "حاصلة على جائزة المعلم المتميز لعام 2022"
+            },
+            {
+                id: "3",
+                name: "خالد عبد الرحمن",
+                nationalId: "1000456789",
+                position: "مسؤول تقنية المعلومات",
+                department: "الصيانة",
+                phone: "0504567890",
+                whatsapp: "0504567890",
+                email: "khalid@school.edu",
+                hireDate: "2020-01-15",
+                subjects: "",
+                qualifications: "بكالوريوس علوم حاسب، شهادات في الشبكات والأمن السيبراني",
+                notes: "يشرف على صيانة الأجهزة وشبكة المدرسة"
+            },
+            {
+                id: "4",
+                name: "فاطمة يوسف الزهراني",
+                nationalId: "1000345678",
+                position: "معلمة لغة إنجليزية",
+                department: "المعلمين",
+                phone: "0503456789",
+                whatsapp: "0503456789",
+                email: "fatima.z@school.edu",
+                hireDate: "2021-08-20",
+                subjects: "اللغة الإنجليزية، المهارات اللغوية",
+                qualifications: "ماجستير في اللغويات التطبيقية",
+                notes: "تشرف على نادي اللغة الإنجليزية"
+            },
+            {
+                id: "5",
+                name: "محمد سعيد العتيبي",
+                nationalId: "1000234567",
+                position: "حارس أمن",
+                department: "الأمن",
+                phone: "0502345678",
+                whatsapp: "0502345678",
+                email: "",
+                hireDate: "2022-03-10",
+                subjects: "",
+                qualifications: "دورات في السلامة والإسعافات الأولية",
+                notes: "يعمل في الفترة الصباحية"
+            },
+            {
+                id: "6",
+                name: "نورة سلطان القحطاني",
+                nationalId: "1000567890",
+                position: "أمينة مكتبة",
+                department: "المكتبة",
+                phone: "0505678901",
+                whatsapp: "0505678901",
+                email: "noura@school.edu",
+                hireDate: "2021-11-01",
+                subjects: "",
+                qualifications: "بكالوريوس في علم المكتبات والمعلومات",
+                notes: "تنظم فعاليات القراءة وأنشطة المكتبة"
+            }
+        ];
+        
+        // المتغيرات والعناصر
+        let employees = [];
+        let isEditMode = false;
+        let filteredEmployees = [];
+        
+        // الوضع المظلم/المضيء
+        function initTheme() {
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+                document.documentElement.classList.add('dark');
+            }
+            
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', event => {
+                if (event.matches) {
+                    document.documentElement.classList.add('dark');
+                } else {
+                    document.documentElement.classList.remove('dark');
+                }
+            });
+            
+            document.getElementById('theme-toggle').addEventListener('click', () => {
+                document.documentElement.classList.toggle('dark');
+            });
+        }
+        
+        // وظائف النموذج
+        function openEmployeeModal(isEdit = false, employee = null) {
+            isEditMode = isEdit;
+            const modal = document.getElementById('employee-modal');
+            const modalTitle = document.getElementById('modal-title');
+            
+            if (isEdit && employee) {
+                modalTitle.textContent = 'تعديل بيانات الموظف';
+                fillEmployeeForm(employee);
+            } else {
+                modalTitle.textContent = 'إضافة موظف جديد';
+                resetEmployeeForm();
+                // تعيين تاريخ اليوم افتراضيًا للموظفين الجدد
+                document.getElementById('employee-hire-date').value = new Date().toISOString().split('T')[0];
+            }
+            
+            modal.classList.remove('hidden');
+        }
+        
+        function closeEmployeeModal() {
+            document.getElementById('employee-modal').classList.add('hidden');
+        }
+        
+        function resetEmployeeForm() {
+            document.getElementById('employee-id').value = '';
+            document.getElementById('employee-name').value = '';
+            document.getElementById('employee-national-id').value = '';
+            document.getElementById('employee-position').value = '';
+            document.getElementById('employee-department').value = '';
+            document.getElementById('employee-phone').value = '';
+            document.getElementById('employee-whatsapp').value = '';
+            document.getElementById('employee-email').value = '';
+            document.getElementById('employee-hire-date').value = '';
+            document.getElementById('employee-subjects').value = '';
+            document.getElementById('employee-qualifications').value = '';
+            document.getElementById('employee-notes').value = '';
+        }
+        
+        function fillEmployeeForm(employee) {
+            document.getElementById('employee-id').value = employee.id;
+            document.getElementById('employee-name').value = employee.name;
+            document.getElementById('employee-national-id').value = employee.nationalId;
+            document.getElementById('employee-position').value = employee.position;
+            document.getElementById('employee-department').value = employee.department;
+            document.getElementById('employee-phone').value = employee.phone;
+            document.getElementById('employee-whatsapp').value = employee.whatsapp || '';
+            document.getElementById('employee-email').value = employee.email || '';
+            document.getElementById('employee-hire-date').value = employee.hireDate;
+            document.getElementById('employee-subjects').value = employee.subjects || '';
+            document.getElementById('employee-qualifications').value = employee.qualifications || '';
+            document.getElementById('employee-notes').value = employee.notes || '';
+        }
+        
+        function getEmployeeFromForm() {
+            return {
+                id: document.getElementById('employee-id').value || Date.now().toString(),
+                name: document.getElementById('employee-name').value,
+                nationalId: document.getElementById('employee-national-id').value,
+                position: document.getElementById('employee-position').value,
+                department: document.getElementById('employee-department').value,
+                phone: document.getElementById('employee-phone').value,
+                whatsapp: document.getElementById('employee-whatsapp').value,
+                email: document.getElementById('employee-email').value,
+                hireDate: document.getElementById('employee-hire-date').value,
+                subjects: document.getElementById('employee-subjects').value,
+                qualifications: document.getElementById('employee-qualifications').value,
+                notes: document.getElementById('employee-notes').value,
+                createdAt: new Date().toISOString(), // تاريخ إنشاء السجل
+                updatedAt: new Date().toISOString()  // تاريخ آخر تحديث
+            };
+        }
+        
+        // وظائف Firebase
+        async function saveEmployee(employee) {
+            try {
+                if (firestoreInitialized && db) {
+                    // تحديث وقت التحديث
+                    employee.updatedAt = new Date().toISOString();
+                    
+                    if (isEditMode) {
+                        await db.collection('employees').doc(employee.id).update(employee);
+                        console.log(`تم تحديث بيانات الموظف بمعرف: ${employee.id}`);
+                    } else {
+                        // تعيين وقت الإنشاء للموظفين الجدد
+                        employee.createdAt = new Date().toISOString();
+                        await db.collection('employees').doc(employee.id).set(employee);
+                        console.log(`تم إضافة موظف جديد بمعرف: ${employee.id}`);
+                    }
+                    return true;
+                } else {
+                    // وضع العرض التجريبي
+                    console.log("استخدام وضع العرض التجريبي - لا يوجد اتصال بقاعدة البيانات");
+                    if (isEditMode) {
+                        const index = employees.findIndex(emp => emp.id === employee.id);
+                        if (index !== -1) {
+                            employees[index] = employee;
+                            console.log(`تم تحديث بيانات الموظف بمعرف: ${employee.id} (وضع العرض التجريبي)`);
+                        }
+                    } else {
+                        employees.push(employee);
+                        console.log(`تم إضافة موظف جديد بمعرف: ${employee.id} (وضع العرض التجريبي)`);
+                    }
+                    return true;
+                }
+            } catch (error) {
+                console.error("خطأ أثناء حفظ بيانات الموظف:", error);
+                return false;
+            }
+        }
+        
+        async function deleteEmployee(id) {
+            try {
+                if (firestoreInitialized && db) {
+                    await db.collection('employees').doc(id).delete();
+                    console.log(`تم حذف الموظف بمعرف: ${id}`);
+                    return true;
+                } else {
+                    // وضع العرض التجريبي
+                    employees = employees.filter(emp => emp.id !== id);
+                    console.log(`تم حذف الموظف بمعرف: ${id} (وضع العرض التجريبي)`);
+                    return true;
+                }
+            } catch (error) {
+                console.error("خطأ أثناء حذف الموظف:", error);
+                return false;
+            }
+        }
+        
+        async function loadEmployees() {
+            const loadingMsg = document.createElement("div");
+            loadingMsg.className = "col-span-full text-center p-10 text-gray-500 dark:text-gray-400";
+            loadingMsg.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i> جاري تحميل البيانات...';
+            
+            document.getElementById('employees-container').innerHTML = '';
+            document.getElementById('employees-container').appendChild(loadingMsg);
+            
+            try {
+                if (firestoreInitialized && db) {
+                    console.log("جاري تحميل البيانات من Firestore...");
+                    const snapshot = await db.collection('employees').orderBy('name').get();
+                    
+                    if (snapshot.empty) {
+                        console.log("لا توجد بيانات في Firestore، استخدام البيانات التجريبية...");
+                        // إذا كانت قاعدة البيانات فارغة، قم بإضافة البيانات التجريبية
+                        const batch = db.batch();
+                        demoEmployees.forEach(emp => {
+                            const docRef = db.collection('employees').doc(emp.id);
+                            // إضافة حقول التواريخ
+                            emp.createdAt = new Date().toISOString();
+                            emp.updatedAt = new Date().toISOString();
+                            batch.set(docRef, emp);
+                        });
+                        
+                        await batch.commit();
+                        console.log("تم إضافة البيانات التجريبية إلى Firestore");
+                        
+                        // إعادة تحميل البيانات بعد إضافة البيانات التجريبية
+                        const newSnapshot = await db.collection('employees').orderBy('name').get();
+                        employees = newSnapshot.docs.map(doc => doc.data());
+                    } else {
+                        employees = snapshot.docs.map(doc => doc.data());
+                        console.log(`تم تحميل ${employees.length} موظف من Firestore`);
+                    }
+                } else {
+                    // وضع العرض التجريبي
+                    console.log("استخدام وضع العرض التجريبي - تحميل البيانات التجريبية");
+                    employees = [...demoEmployees];
+                }
+                
+                filteredEmployees = [...employees];
+                displayEmployees(filteredEmployees);
+                updateStats();
+                
+                return true;
+            } catch (error) {
+                console.error("خطأ أثناء تحميل البيانات:", error);
+                employees = [...demoEmployees];
+                filteredEmployees = [...employees];
+                displayEmployees(filteredEmployees);
+                updateStats();
+                
+                // عرض رسالة خطأ للمستخدم
+                Swal.fire({
+                    icon: 'error',
+                    title: 'خطأ في الاتصال',
+                    text: 'تعذر الاتصال بقاعدة البيانات. يتم عرض بيانات تجريبية.',
+                    confirmButtonText: 'فهمت'
+                });
+                
+                return false;
+            }
+        }
+        
+        // وظائف العرض
+        function displayEmployees(employeesToShow) {
+            const container = document.getElementById('employees-container');
+            container.innerHTML = '';
+            
+            if (employeesToShow.length === 0) {
+                container.innerHTML = '<div class="col-span-full text-center p-10 text-gray-500 dark:text-gray-400">لا يوجد بيانات للعرض</div>';
+                return;
+            }
+            
+            employeesToShow.forEach(employee => {
+                const card = document.createElement('div');
+                card.className = 'employee-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow border hover:shadow-md transition-shadow';
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-start mb-2">
+                        <h3 class="text-lg font-semibold">${employee.name}</h3>
+                        <div class="flex space-x-2">
+                            <button class="edit-btn text-blue-500 hover:text-blue-700 px-1" data-id="${employee.id}">
+                                <i class="fas fa-edit"></i>
+                            </button>
+                            <button class="delete-btn text-red-500 hover:text-red-700 px-1" data-id="${employee.id}">
+                                <i class="fas fa-trash-alt"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <p class="text-gray-600 dark:text-gray-300">${employee.position}</p>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm">${employee.department}</p>
+                    </div>
+                    <div class="flex space-x-2 mt-3">
+                        <a href="tel:${employee.phone}" class="phone-btn text-white px-3 py-1 rounded-full text-sm flex items-center space-x-1">
+                            <i class="fas fa-phone"></i>
+                            <span>اتصال</span>
+                        </a>
+                        ${employee.whatsapp ? `
+                        <a href="https://wa.me/${employee.whatsapp.replace(/^0/, '966')}" target="_blank" class="whatsapp-btn text-white px-3 py-1 rounded-full text-sm flex items-center space-x-1">
+                            <i class="fab fa-whatsapp"></i>
+                            <span>واتساب</span>
+                        </a>
+                        ` : ''}
+                        <button class="view-details-btn bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 px-3 py-1 rounded-full text-sm flex items-center space-x-1" data-id="${employee.id}">
+                            <i class="fas fa-info-circle"></i>
+                            <span>التفاصيل</span>
+                        </button>
+                    </div>
+                `;
+                
+                container.appendChild(card);
+                
+                // إضافة مستمعي الأحداث
+                card.querySelector('.edit-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const employeeToEdit = employees.find(emp => emp.id === employee.id);
+                    if (employeeToEdit) {
+                        openEmployeeModal(true, employeeToEdit);
+                    }
+                });
+                
+                card.querySelector('.delete-btn').addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    confirmDeleteEmployee(employee);
+                });
+                
+                card.querySelector('.view-details-btn').addEventListener('click', () => {
+                    showEmployeeDetails(employee);
+                });
+            });
+        }
+        
+        function updateStats() {
+            document.getElementById('total-employees').textContent = employees.length;
+            
+            const teachersCount = employees.filter(emp => emp.department === 'المعلمين').length;
+            document.getElementById('teachers-count').textContent = teachersCount;
+            
+            const adminCount = employees.filter(emp => emp.department === 'الإدارة').length;
+            document.getElementById('admin-count').textContent = adminCount;
+            
+            const supportCount = employees.filter(emp => 
+                emp.department === 'الصيانة' || 
+                emp.department === 'الأمن' || 
+                emp.department === 'المكتبة'
+            ).length;
+            document.getElementById('support-count').textContent = supportCount;
+        }
+        
+        function showEmployeeDetails(employee) {
+            const modal = document.getElementById('employee-details-modal');
+            const content = document.getElementById('employee-details-content');
+            
+            content.innerHTML = `
+                <div class="mb-6">
+                    <h3 class="text-2xl font-bold mb-1">${employee.name}</h3>
+                    <p class="text-lg text-primary">${employee.position} - ${employee.department}</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <h4 class="font-semibold mb-2">معلومات أساسية</h4>
+                        <div class="space-y-2">
+                            <p><span class="font-medium">رقم الهوية:</span> ${employee.nationalId}</p>
+                            <p><span class="font-medium">تاريخ التعيين:</span> ${formatDate(employee.hireDate)}</p>
+                            ${employee.subjects ? `<p><span class="font-medium">المواد التي يدرسها:</span> ${employee.subjects}</p>` : ''}
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 class="font-semibold mb-2">معلومات التواصل</h4>
+                        <div class="space-y-2">
+                            <p><span class="font-medium">الهاتف:</span> <a href="tel:${employee.phone}" class="text-primary">${employee.phone}</a></p>
+                            ${employee.whatsapp ? `<p><span class="font-medium">الواتساب:</span> <a href="https://wa.me/${employee.whatsapp.replace(/^0/, '966')}" target="_blank" class="text-green-600">${employee.whatsapp}</a></p>` : ''}
+                            ${employee.email ? `<p><span class="font-medium">البريد الإلكتروني:</span> <a href="mailto:${employee.email}" class="text-primary">${employee.email}</a></p>` : ''}
+                        </div>
+                    </div>
+                </div>
+                
+                ${employee.qualifications ? `
+                <div class="mb-4">
+                    <h4 class="font-semibold mb-2">المؤهلات والشهادات</h4>
+                    <p>${employee.qualifications}</p>
+                </div>
+                ` : ''}
+                
+                ${employee.notes ? `
+                <div>
+                    <h4 class="font-semibold mb-2">ملاحظات إضافية</h4>
+                    <p>${employee.notes}</p>
+                </div>
+                ` : ''}
+            `;
+            
+            modal.classList.remove('hidden');
+        }
+        
+        function closeEmployeeDetails() {
+            document.getElementById('employee-details-modal').classList.add('hidden');
+        }
+        
+        function confirmDeleteEmployee(employee) {
+            Swal.fire({
+                title: 'تأكيد الحذف',
+                text: `هل أنت متأكد من حذف بيانات الموظف ${employee.name}؟`,
+                icon: 'warning',
+                showCancelButton: true,
+                confirmButtonColor: '#d33',
+                cancelButtonColor: '#3085d6',
+                confirmButtonText: 'نعم، حذف',
+                cancelButtonText: 'إلغاء',
+                focusCancel: true
+            }).then((result) => {
+                if (result.isConfirmed) {
+                    deleteEmployee(employee.id).then(success => {
+                        if (success) {
+                            Swal.fire('تم الحذف', 'تم حذف بيانات الموظف بنجاح', 'success');
+                            loadEmployees();
+                        } else {
+                            Swal.fire('خطأ', 'حدث خطأ أثناء حذف بيانات الموظف', 'error');
+                        }
+                    });
+                }
+            });
+        }
+        
+        // وظائف البحث
+        function searchEmployees() {
+            const nameSearch = document.getElementById('search-name').value.trim().toLowerCase();
+            const positionSearch = document.getElementById('search-position').value.trim().toLowerCase();
+            const departmentSearch = document.getElementById('search-department').value;
+            
+            filteredEmployees = employees.filter(employee => {
+                const nameMatch = !nameSearch || employee.name.toLowerCase().includes(nameSearch);
+                const positionMatch = !positionSearch || employee.position.toLowerCase().includes(positionSearch);
+                const departmentMatch = !departmentSearch || employee.department === departmentSearch;
+                
+                return nameMatch && positionMatch && departmentMatch;
+            });
+            
+            displayEmployees(filteredEmployees);
+        }
+        
+        function resetSearch() {
+            document.getElementById('search-name').value = '';
+            document.getElementById('search-position').value = '';
+            document.getElementById('search-department').value = '';
+            
+            filteredEmployees = [...employees];
+            displayEmployees(filteredEmployees);
+        }
+        
+        // وظائف استيراد وتصدير البيانات
+        function exportToExcel() {
+            const dataToExport = employees.map(emp => ({
+                'الاسم': emp.name,
+                'رقم الهوية': emp.nationalId,
+                'المنصب': emp.position,
+                'القسم': emp.department,
+                'رقم الهاتف': emp.phone,
+                'رقم الواتساب': emp.whatsapp,
+                'البريد الإلكتروني': emp.email,
+                'تاريخ التعيين': emp.hireDate,
+                'المواد التي يدرسها': emp.subjects,
+                'المؤهلات': emp.qualifications,
+                'ملاحظات': emp.notes
+            }));
+            
+            const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+            
+            // تعديل عرض الأعمدة في ملف Excel
+            const cols = [
+                { wch: 25 }, // الاسم
+                { wch: 15 }, // رقم الهوية
+                { wch: 20 }, // المنصب
+                { wch: 12 }, // القسم
+                { wch: 15 }, // رقم الهاتف
+                { wch: 15 }, // رقم الواتساب
+                { wch: 25 }, // البريد الإلكتروني
+                { wch: 15 }, // تاريخ التعيين
+                { wch: 25 }, // المواد
+                { wch: 30 }, // المؤهلات
+                { wch: 30 }  // ملاحظات
+            ];
+            worksheet['!cols'] = cols;
+            
+            const workbook = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(workbook, worksheet, "الموظفين");
+            
+            // تحويل الكتاب إلى ملف اكسل
+            const excelBuffer = XLSX.write(workbook, { bookType: 'xlsx', type: 'array' });
+            
+            // إنشاء عنصر رابط وفتحه في نافذة جديدة
+            const blob = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            const url = URL.createObjectURL(blob);
+            const filename = `موظفي_المدرسة_${new Date().toISOString().split('T')[0]}.xlsx`;
+            
+            // عرض رسالة للمستخدم
+            Swal.fire({
+                title: 'تم إنشاء ملف Excel',
+                html: 'لتنزيل الملف: <br>1. انقر بزر الماوس الأيمن على الرابط أدناه<br>2. اختر "حفظ الرابط باسم"<br><br><a href="' + url + '" target="_blank" style="color: #5D5CDE; text-decoration: underline;">' + filename + '</a>',
+                icon: 'success',
+                confirmButtonText: 'تم'
+            });
+        }
+        
+        function importFromCSV(file) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    Swal.fire({
+                        title: 'جاري معالجة الملف',
+                        text: 'يرجى الانتظار...',
+                        allowOutsideClick: false,
+                        didOpen: () => {
+                            Swal.showLoading();
+                        }
+                    });
+                    
+                    const data = e.target.result;
+                    const workbook = XLSX.read(data, { type: 'binary' });
+                    const sheetName = workbook.SheetNames[0];
+                    const sheet = workbook.Sheets[sheetName];
+                    const jsonData = XLSX.utils.sheet_to_json(sheet);
+                    
+                    if (jsonData.length === 0) {
+                        Swal.fire('خطأ', 'الملف فارغ أو لا يحتوي على بيانات صالحة', 'error');
+                        return;
+                    }
+                    
+                    // تحويل البيانات المستوردة إلى تنسيق موظفينا
+                    const importedEmployees = jsonData.map(row => {
+                        return {
+                            id: Date.now().toString() + Math.floor(Math.random() * 1000),
+                            name: row['الاسم'] || '',
+                            nationalId: row['رقم الهوية'] || '',
+                            position: row['المنصب'] || '',
+                            department: row['القسم'] || '',
+                            phone: row['رقم الهاتف'] || '',
+                            whatsapp: row['رقم الواتساب'] || '',
+                            email: row['البريد الإلكتروني'] || '',
+                            hireDate: row['تاريخ التعيين'] || new Date().toISOString().split('T')[0],
+                            subjects: row['المواد التي يدرسها'] || '',
+                            qualifications: row['المؤهلات'] || '',
+                            notes: row['ملاحظات'] || '',
+                            createdAt: new Date().toISOString(),
+                            updatedAt: new Date().toISOString()
+                        };
+                    });
+                    
+                    // عرض تأكيد للمستخدم
+                    Swal.fire({
+                        title: 'استيراد البيانات',
+                        text: `هل تريد استيراد ${importedEmployees.length} سجل من الملف؟`,
+                        icon: 'question',
+                        showCancelButton: true,
+                        confirmButtonText: 'استيراد',
+                        cancelButtonText: 'إلغاء'
+                    }).then(async (result) => {
+                        if (result.isConfirmed) {
+                            try {
+                                Swal.fire({
+                                    title: 'جاري استيراد البيانات',
+                                    text: 'يرجى الانتظار...',
+                                    allowOutsideClick: false,
+                                    didOpen: () => {
+                                        Swal.showLoading();
+                                    }
+                                });
+                                
+                                // إضافة الموظفين المستوردين
+                                if (firestoreInitialized && db) {
+                                    const batch = db.batch();
+                                    importedEmployees.forEach(emp => {
+                                        const docRef = db.collection('employees').doc(emp.id);
+                                        batch.set(docRef, emp);
+                                    });
+                                    await batch.commit();
+                                    console.log(`تم استيراد ${importedEmployees.length} موظف إلى Firestore`);
+                                } else {
+                                    employees = [...employees, ...importedEmployees];
+                                    console.log(`تم استيراد ${importedEmployees.length} موظف (وضع العرض التجريبي)`);
+                                }
+                                
+                                await loadEmployees();
+                                
+                                Swal.fire({
+                                    icon: 'success',
+                                    title: 'تم الاستيراد بنجاح',
+                                    text: `تم استيراد ${importedEmployees.length} موظف بنجاح`,
+                                    confirmButtonText: 'تم'
+                                });
+                            } catch (error) {
+                                console.error("خطأ أثناء استيراد البيانات:", error);
+                                Swal.fire('خطأ', 'حدث خطأ أثناء استيراد البيانات', 'error');
+                            }
+                        }
+                    });
+                    
+                } catch (error) {
+                    console.error("خطأ في معالجة الملف:", error);
+                    Swal.fire('خطأ', 'حدث خطأ أثناء معالجة الملف، تأكد من صحة تنسيق الملف', 'error');
+                }
+            };
+            
+            reader.onerror = function() {
+                Swal.fire('خطأ', 'حدث خطأ أثناء قراءة الملف', 'error');
+            };
+            
+            reader.readAsBinaryString(file);
+        }
+        
+        // وظائف مساعدة
+        function formatDate(dateString) {
+            if (!dateString) return '';
+            
+            try {
+                // تنسيق التاريخ بالتقويم الميلادي
+                const date = new Date(dateString);
+                
+                // التأكد من صحة التاريخ
+                if (isNaN(date.getTime())) {
+                    return dateString; // إرجاع القيمة الأصلية إذا كان التاريخ غير صالح
+                }
+                
+                // عرض التاريخ بالتنسيق الميلادي
+                const options = { 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric',
+                    calendar: 'gregory' // استخدام التقويم الميلادي
+                };
+                
+                return date.toLocaleDateString('ar', options);
+            } catch (e) {
+                console.error("خطأ في تنسيق التاريخ:", e);
+                return dateString; // إرجاع القيمة الأصلية في حالة الخطأ
+            }
+        }
+        
+        // مستمعي الأحداث
+        function setupEventListeners() {
+            // أزرار النموذج
+            document.getElementById('add-employee-btn').addEventListener('click', () => openEmployeeModal());
+            document.getElementById('close-modal').addEventListener('click', closeEmployeeModal);
+            document.getElementById('cancel-form').addEventListener('click', closeEmployeeModal);
+            
+            // أزرار تفاصيل الموظف
+            document.getElementById('close-details').addEventListener('click', closeEmployeeDetails);
+            document.getElementById('close-details-btn').addEventListener('click', closeEmployeeDetails);
+            
+            // البحث
+            document.getElementById('search-btn').addEventListener('click', searchEmployees);
+            document.getElementById('reset-search-btn').addEventListener('click', resetSearch);
+            
+            // استيراد وتصدير
+            document.getElementById('export-btn').addEventListener('click', exportToExcel);
+            document.getElementById('import-file').addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    importFromCSV(e.target.files[0]);
+                    e.target.value = ''; // إعادة ضبط مربع الملف
+                }
+            });
+            
+            // نموذج إضافة/تعديل الموظف
+            document.getElementById('employee-form').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                Swal.fire({
+                    title: 'جاري حفظ البيانات',
+                    text: 'يرجى الانتظار...',
+                    allowOutsideClick: false,
+                    didOpen: () => {
+                        Swal.showLoading();
+                    }
+                });
+                
+                const employee = getEmployeeFromForm();
+                const success = await saveEmployee(employee);
+                
+                if (success) {
+                    closeEmployeeModal();
+                    await loadEmployees();
+                    Swal.fire({
+                        icon: 'success',
+                        title: isEditMode ? 'تم التعديل بنجاح' : 'تمت الإضافة بنجاح',
+                        showConfirmButton: false,
+                        timer: 1500
+                    });
+                } else {
+                    Swal.fire('خطأ', 'حدث خطأ أثناء حفظ البيانات', 'error');
+                }
+            });
+        }
+        
+        // تهيئة التطبيق
+        async function initApp() {
+            initTheme();
+            setupEventListeners();
+            
+            // محاولة الاتصال بقاعدة البيانات وتحميل البيانات
+            await loadEmployees();
+        }
+        
+        // تشغيل التطبيق عند تحميل الصفحة
+        document.addEventListener('DOMContentLoaded', initApp);
+    </script>
+</body>
+</html>
