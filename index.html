@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>نظام إدارة موظفي المدرسة</title>
+    <title>نظام إدارة موظفي مدرسة الثروات الوطنيه الخاصه</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-firestore.js"></script>
@@ -52,16 +52,66 @@
             background-color: white;
             border-color: #e2e8f0;
         }
+
+        .notification-badge {
+            position: absolute;
+            top: -8px;
+            right: -8px;
+            background-color: #EF4444;
+            color: white;
+            border-radius: 9999px;
+            padding: 0.25rem 0.5rem;
+            font-size: 0.75rem;
+            line-height: 1;
+        }
+
+        .notification-bell {
+            transition: all 0.3s ease;
+        }
+
+        .notification-bell.animate {
+            animation: bell-ring 1s ease;
+        }
+
+        @keyframes bell-ring {
+            0% { transform: rotate(0); }
+            20% { transform: rotate(15deg); }
+            40% { transform: rotate(-15deg); }
+            60% { transform: rotate(7deg); }
+            80% { transform: rotate(-7deg); }
+            100% { transform: rotate(0); }
+        }
+
+        .expire-warning {
+            background-color: #FECACA;
+            border-color: #F87171;
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            color: #B91C1C;
+        }
+
+        .dark .expire-warning {
+            background-color: #7F1D1D;
+            border-color: #EF4444;
+            color: #FEE2E2;
+        }
     </style>
 </head>
 <body class="min-h-screen transition-colors duration-300 bg-gray-100 dark:bg-gray-900 dark:text-white">
     <div class="container mx-auto px-4 py-8">
         <header class="flex flex-col md:flex-row justify-between items-center mb-6">
             <div>
-                <h1 class="text-3xl font-bold text-primary">نظام إدارة موظفي المدرسة</h1>
+                <h1 class="text-3xl font-bold text-primary">نظام إدارة موظفي مدرسة الثروات الوطنيه الخاصه</h1>
                 <p class="text-gray-600 dark:text-gray-300">قاعدة بيانات شاملة للموظفين</p>
             </div>
             <div class="flex items-center mt-4 md:mt-0">
+                <!-- زر الإشعارات -->
+                <div class="relative mr-4">
+                    <button id="notification-btn" class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 relative">
+                        <i class="fas fa-bell notification-bell"></i>
+                        <span id="notification-badge" class="notification-badge hidden">0</span>
+                    </button>
+                </div>
                 <button id="theme-toggle" class="p-2 rounded-full bg-gray-200 dark:bg-gray-700 mr-4">
                     <i class="fas fa-moon dark:hidden"></i>
                     <i class="fas fa-sun hidden dark:block"></i>
@@ -80,6 +130,17 @@
                 </div>
             </div>
         </header>
+
+        <!-- قائمة الإشعارات -->
+        <div id="notifications-panel" class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow mb-6 hidden">
+            <h2 class="text-xl font-semibold mb-4">الإشعارات</h2>
+            <div id="expiring-contracts" class="space-y-3">
+                <!-- سيتم إضافة إشعارات العقود المنتهية هنا -->
+                <div class="text-center text-gray-500 dark:text-gray-400">
+                    لا توجد إشعارات
+                </div>
+            </div>
+        </div>
 
         <!-- قسم البحث -->
         <div class="mb-6 bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
@@ -102,6 +163,23 @@
                         <option value="الصيانة">الصيانة</option>
                         <option value="الأمن">الأمن</option>
                         <option value="المكتبة">المكتبة</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="search-gender" class="block mb-1">الجنس</label>
+                    <select id="search-gender" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                        <option value="">الكل</option>
+                        <option value="ذكر">ذكر</option>
+                        <option value="أنثى">أنثى</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="search-contract-status" class="block mb-1">حالة العقد</label>
+                    <select id="search-contract-status" class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                        <option value="">الكل</option>
+                        <option value="active">ساري</option>
+                        <option value="expiring">ينتهي قريباً</option>
+                        <option value="expired">منتهي</option>
                     </select>
                 </div>
             </div>
@@ -130,8 +208,8 @@
                 <p id="admin-count" class="text-3xl font-bold text-blue-600">0</p>
             </div>
             <div class="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-                <h3 class="text-lg font-semibold mb-2">الدعم والصيانة</h3>
-                <p id="support-count" class="text-3xl font-bold text-yellow-600">0</p>
+                <h3 class="text-lg font-semibold mb-2">العقود المنتهية قريباً</h3>
+                <p id="expiring-count" class="text-3xl font-bold text-yellow-600">0</p>
             </div>
         </div>
 
@@ -170,6 +248,19 @@
                         <input type="text" id="employee-national-id" required class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
                     </div>
                     <div>
+                        <label class="block mb-1">الجنس <span class="text-red-500">*</span></label>
+                        <div class="flex space-x-4">
+                            <label class="inline-flex items-center ml-4">
+                                <input type="radio" name="employee-gender" value="ذكر" class="form-radio" required>
+                                <span class="mr-2">ذكر</span>
+                            </label>
+                            <label class="inline-flex items-center">
+                                <input type="radio" name="employee-gender" value="أنثى" class="form-radio" required>
+                                <span class="mr-2">أنثى</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div>
                         <label for="employee-position" class="block mb-1">المنصب <span class="text-red-500">*</span></label>
                         <input type="text" id="employee-position" required class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
                     </div>
@@ -199,6 +290,10 @@
                     <div>
                         <label for="employee-hire-date" class="block mb-1">تاريخ التعيين <span class="text-red-500">*</span></label>
                         <input type="date" id="employee-hire-date" required class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
+                    </div>
+                    <div>
+                        <label for="employee-contract-end" class="block mb-1">تاريخ انتهاء العقد <span class="text-red-500">*</span></label>
+                        <input type="date" id="employee-contract-end" required class="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600 text-base">
                     </div>
                 </div>
                 <div class="mb-4">
@@ -277,12 +372,14 @@
                 id: "1",
                 name: "أحمد محمد علي",
                 nationalId: "1000123456",
+                gender: "ذكر",
                 position: "مدير المدرسة",
                 department: "الإدارة",
                 phone: "0501234567",
                 whatsapp: "0501234567",
                 email: "ahmed.ali@school.edu",
                 hireDate: "2018-08-15",
+                contractEnd: "2023-12-30",
                 subjects: "",
                 qualifications: "دكتوراه في الإدارة التربوية، 15 سنة خبرة في التعليم",
                 notes: "يشرف على جميع أقسام المدرسة"
@@ -291,12 +388,14 @@
                 id: "2",
                 name: "سارة عبد الله الحمد",
                 nationalId: "1000789012",
+                gender: "أنثى",
                 position: "معلمة رياضيات",
                 department: "المعلمين",
                 phone: "0507890123",
                 whatsapp: "0507890123",
                 email: "sara.hamad@school.edu",
                 hireDate: "2019-09-01",
+                contractEnd: "2024-08-01",
                 subjects: "رياضيات، إحصاء",
                 qualifications: "بكالوريوس رياضيات، دبلوم تربوي",
                 notes: "حاصلة على جائزة المعلم المتميز لعام 2022"
@@ -305,12 +404,14 @@
                 id: "3",
                 name: "خالد عبد الرحمن",
                 nationalId: "1000456789",
+                gender: "ذكر",
                 position: "مسؤول تقنية المعلومات",
                 department: "الصيانة",
                 phone: "0504567890",
                 whatsapp: "0504567890",
                 email: "khalid@school.edu",
                 hireDate: "2020-01-15",
+                contractEnd: "2024-01-15",
                 subjects: "",
                 qualifications: "بكالوريوس علوم حاسب، شهادات في الشبكات والأمن السيبراني",
                 notes: "يشرف على صيانة الأجهزة وشبكة المدرسة"
@@ -319,12 +420,14 @@
                 id: "4",
                 name: "فاطمة يوسف الزهراني",
                 nationalId: "1000345678",
+                gender: "أنثى",
                 position: "معلمة لغة إنجليزية",
                 department: "المعلمين",
                 phone: "0503456789",
                 whatsapp: "0503456789",
                 email: "fatima.z@school.edu",
                 hireDate: "2021-08-20",
+                contractEnd: addMonths(new Date(), 1).toISOString().split('T')[0], // تاريخ ينتهي بعد شهر من اليوم
                 subjects: "اللغة الإنجليزية، المهارات اللغوية",
                 qualifications: "ماجستير في اللغويات التطبيقية",
                 notes: "تشرف على نادي اللغة الإنجليزية"
@@ -333,12 +436,14 @@
                 id: "5",
                 name: "محمد سعيد العتيبي",
                 nationalId: "1000234567",
+                gender: "ذكر",
                 position: "حارس أمن",
                 department: "الأمن",
                 phone: "0502345678",
                 whatsapp: "0502345678",
                 email: "",
                 hireDate: "2022-03-10",
+                contractEnd: addMonths(new Date(), 3).toISOString().split('T')[0], // تاريخ ينتهي بعد 3 أشهر
                 subjects: "",
                 qualifications: "دورات في السلامة والإسعافات الأولية",
                 notes: "يعمل في الفترة الصباحية"
@@ -347,12 +452,14 @@
                 id: "6",
                 name: "نورة سلطان القحطاني",
                 nationalId: "1000567890",
+                gender: "أنثى",
                 position: "أمينة مكتبة",
                 department: "المكتبة",
                 phone: "0505678901",
                 whatsapp: "0505678901",
                 email: "noura@school.edu",
                 hireDate: "2021-11-01",
+                contractEnd: addDays(new Date(), 15).toISOString().split('T')[0], // تاريخ ينتهي بعد 15 يوم
                 subjects: "",
                 qualifications: "بكالوريوس في علم المكتبات والمعلومات",
                 notes: "تنظم فعاليات القراءة وأنشطة المكتبة"
@@ -363,6 +470,42 @@
         let employees = [];
         let isEditMode = false;
         let filteredEmployees = [];
+        let expiringContracts = []; // تخزين العقود التي ستنتهي قريباً
+        
+        // وظائف التاريخ المساعدة
+        function addMonths(date, months) {
+            date = new Date(date);
+            date.setMonth(date.getMonth() + months);
+            return date;
+        }
+        
+        function addDays(date, days) {
+            date = new Date(date);
+            date.setDate(date.getDate() + days);
+            return date;
+        }
+        
+        function calculateDaysRemaining(endDate) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const end = new Date(endDate);
+            end.setHours(0, 0, 0, 0);
+            
+            const diffTime = end - today;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            return diffDays;
+        }
+        
+        function isContractExpiring(endDate) {
+            const daysRemaining = calculateDaysRemaining(endDate);
+            return daysRemaining >= 0 && daysRemaining <= 30;
+        }
+        
+        function isContractExpired(endDate) {
+            const daysRemaining = calculateDaysRemaining(endDate);
+            return daysRemaining < 0;
+        }
         
         // الوضع المظلم/المضيء
         function initTheme() {
@@ -397,6 +540,11 @@
                 resetEmployeeForm();
                 // تعيين تاريخ اليوم افتراضيًا للموظفين الجدد
                 document.getElementById('employee-hire-date').value = new Date().toISOString().split('T')[0];
+                
+                // تعيين تاريخ انتهاء العقد افتراضي - بعد سنة من تاريخ اليوم
+                const oneYearFromNow = new Date();
+                oneYearFromNow.setFullYear(oneYearFromNow.getFullYear() + 1);
+                document.getElementById('employee-contract-end').value = oneYearFromNow.toISOString().split('T')[0];
             }
             
             modal.classList.remove('hidden');
@@ -416,9 +564,14 @@
             document.getElementById('employee-whatsapp').value = '';
             document.getElementById('employee-email').value = '';
             document.getElementById('employee-hire-date').value = '';
+            document.getElementById('employee-contract-end').value = '';
             document.getElementById('employee-subjects').value = '';
             document.getElementById('employee-qualifications').value = '';
             document.getElementById('employee-notes').value = '';
+            
+            // إعادة ضبط زر اختيار الجنس
+            const genderInputs = document.getElementsByName('employee-gender');
+            genderInputs.forEach(input => input.checked = false);
         }
         
         function fillEmployeeForm(employee) {
@@ -431,22 +584,42 @@
             document.getElementById('employee-whatsapp').value = employee.whatsapp || '';
             document.getElementById('employee-email').value = employee.email || '';
             document.getElementById('employee-hire-date').value = employee.hireDate;
+            document.getElementById('employee-contract-end').value = employee.contractEnd || '';
             document.getElementById('employee-subjects').value = employee.subjects || '';
             document.getElementById('employee-qualifications').value = employee.qualifications || '';
             document.getElementById('employee-notes').value = employee.notes || '';
+            
+            // تحديد الجنس
+            const genderInputs = document.getElementsByName('employee-gender');
+            genderInputs.forEach(input => {
+                if (input.value === employee.gender) {
+                    input.checked = true;
+                }
+            });
         }
         
         function getEmployeeFromForm() {
+            // الحصول على قيمة الجنس المحددة
+            let gender = '';
+            const genderInputs = document.getElementsByName('employee-gender');
+            genderInputs.forEach(input => {
+                if (input.checked) {
+                    gender = input.value;
+                }
+            });
+            
             return {
                 id: document.getElementById('employee-id').value || Date.now().toString(),
                 name: document.getElementById('employee-name').value,
                 nationalId: document.getElementById('employee-national-id').value,
+                gender: gender,
                 position: document.getElementById('employee-position').value,
                 department: document.getElementById('employee-department').value,
                 phone: document.getElementById('employee-phone').value,
                 whatsapp: document.getElementById('employee-whatsapp').value,
                 email: document.getElementById('employee-email').value,
                 hireDate: document.getElementById('employee-hire-date').value,
+                contractEnd: document.getElementById('employee-contract-end').value,
                 subjects: document.getElementById('employee-subjects').value,
                 qualifications: document.getElementById('employee-qualifications').value,
                 notes: document.getElementById('employee-notes').value,
@@ -555,6 +728,7 @@
                 filteredEmployees = [...employees];
                 displayEmployees(filteredEmployees);
                 updateStats();
+                checkExpiringContracts();
                 
                 return true;
             } catch (error) {
@@ -563,6 +737,7 @@
                 filteredEmployees = [...employees];
                 displayEmployees(filteredEmployees);
                 updateStats();
+                checkExpiringContracts();
                 
                 // عرض رسالة خطأ للمستخدم
                 Swal.fire({
@@ -574,6 +749,79 @@
                 
                 return false;
             }
+        }
+        
+        // وظائف التنبيه بانتهاء العقود
+        function checkExpiringContracts() {
+            expiringContracts = employees.filter(emp => isContractExpiring(emp.contractEnd));
+            
+            // تحديث شارة الإشعارات
+            const badge = document.getElementById('notification-badge');
+            const notificationBell = document.querySelector('.notification-bell');
+            
+            if (expiringContracts.length > 0) {
+                badge.textContent = expiringContracts.length;
+                badge.classList.remove('hidden');
+                
+                // تحريك الجرس
+                notificationBell.classList.add('animate');
+                setTimeout(() => {
+                    notificationBell.classList.remove('animate');
+                }, 1000);
+            } else {
+                badge.classList.add('hidden');
+            }
+            
+            // تحديث لوحة الإشعارات
+            updateNotificationsPanel();
+            
+            // تحديث العداد في الإحصائيات
+            document.getElementById('expiring-count').textContent = expiringContracts.length;
+        }
+        
+        function updateNotificationsPanel() {
+            const panel = document.getElementById('expiring-contracts');
+            panel.innerHTML = '';
+            
+            if (expiringContracts.length === 0) {
+                panel.innerHTML = '<div class="text-center text-gray-500 dark:text-gray-400">لا توجد إشعارات</div>';
+                return;
+            }
+            
+            expiringContracts.forEach(emp => {
+                const daysRemaining = calculateDaysRemaining(emp.contractEnd);
+                const notificationItem = document.createElement('div');
+                notificationItem.className = 'flex justify-between items-center p-3 border rounded expire-warning';
+                
+                notificationItem.innerHTML = `
+                    <div>
+                        <h4 class="font-semibold">${emp.name}</h4>
+                        <p>${emp.position} - ${emp.department}</p>
+                        <p class="text-sm mt-1">
+                            <span class="font-medium">تاريخ انتهاء العقد:</span> ${formatDate(emp.contractEnd)}
+                            (متبقي ${daysRemaining} يوم)
+                        </p>
+                    </div>
+                    <button class="view-employee-btn bg-blue-500 hover:bg-blue-600 text-white px-3 py-1 rounded-full text-sm" data-id="${emp.id}">
+                        عرض
+                    </button>
+                `;
+                
+                panel.appendChild(notificationItem);
+                
+                // إضافة مستمع الحدث لزر العرض
+                notificationItem.querySelector('.view-employee-btn').addEventListener('click', () => {
+                    const employeeToView = employees.find(e => e.id === emp.id);
+                    if (employeeToView) {
+                        showEmployeeDetails(employeeToView);
+                    }
+                });
+            });
+        }
+        
+        function toggleNotificationsPanel() {
+            const panel = document.getElementById('notifications-panel');
+            panel.classList.toggle('hidden');
         }
         
         // وظائف العرض
@@ -588,9 +836,18 @@
             
             employeesToShow.forEach(employee => {
                 const card = document.createElement('div');
-                card.className = 'employee-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow border hover:shadow-md transition-shadow';
+                card.className = 'employee-card bg-white dark:bg-gray-800 p-4 rounded-lg shadow border hover:shadow-md transition-shadow relative';
+                
+                // إضافة علامة انتهاء العقد إذا كان العقد على وشك الانتهاء
+                let contractStatusHTML = '';
+                if (isContractExpired(employee.contractEnd)) {
+                    contractStatusHTML = '<div class="absolute top-0 left-0 bg-red-600 text-white px-2 py-1 text-xs rounded-br">منتهي</div>';
+                } else if (isContractExpiring(employee.contractEnd)) {
+                    contractStatusHTML = '<div class="absolute top-0 left-0 bg-yellow-500 text-white px-2 py-1 text-xs rounded-br">ينتهي قريباً</div>';
+                }
                 
                 card.innerHTML = `
+                    ${contractStatusHTML}
                     <div class="flex justify-between items-start mb-2">
                         <h3 class="text-lg font-semibold">${employee.name}</h3>
                         <div class="flex space-x-2">
@@ -604,7 +861,12 @@
                     </div>
                     <div class="mb-2">
                         <p class="text-gray-600 dark:text-gray-300">${employee.position}</p>
-                        <p class="text-gray-500 dark:text-gray-400 text-sm">${employee.department}</p>
+                        <p class="text-gray-500 dark:text-gray-400 text-sm">${employee.department} - ${employee.gender}</p>
+                    </div>
+                    <div class="mt-2 mb-3">
+                        <p class="text-sm">
+                            <span class="font-medium">تاريخ انتهاء العقد:</span> ${formatDate(employee.contractEnd)}
+                        </p>
                     </div>
                     <div class="flex space-x-2 mt-3">
                         <a href="tel:${employee.phone}" class="phone-btn text-white px-3 py-1 rounded-full text-sm flex items-center space-x-1">
@@ -654,18 +916,22 @@
             
             const adminCount = employees.filter(emp => emp.department === 'الإدارة').length;
             document.getElementById('admin-count').textContent = adminCount;
-            
-            const supportCount = employees.filter(emp => 
-                emp.department === 'الصيانة' || 
-                emp.department === 'الأمن' || 
-                emp.department === 'المكتبة'
-            ).length;
-            document.getElementById('support-count').textContent = supportCount;
         }
         
         function showEmployeeDetails(employee) {
             const modal = document.getElementById('employee-details-modal');
             const content = document.getElementById('employee-details-content');
+            
+            // تحديد حالة العقد
+            let contractStatusHTML = '';
+            if (isContractExpired(employee.contractEnd)) {
+                contractStatusHTML = '<span class="inline-block bg-red-600 text-white px-2 py-1 text-xs rounded mr-2">منتهي</span>';
+            } else if (isContractExpiring(employee.contractEnd)) {
+                const daysRemaining = calculateDaysRemaining(employee.contractEnd);
+                contractStatusHTML = `<span class="inline-block bg-yellow-500 text-white px-2 py-1 text-xs rounded mr-2">ينتهي خلال ${daysRemaining} يوم</span>`;
+            } else {
+                contractStatusHTML = '<span class="inline-block bg-green-600 text-white px-2 py-1 text-xs rounded mr-2">ساري</span>';
+            }
             
             content.innerHTML = `
                 <div class="mb-6">
@@ -677,8 +943,10 @@
                     <div>
                         <h4 class="font-semibold mb-2">معلومات أساسية</h4>
                         <div class="space-y-2">
+                            <p><span class="font-medium">الجنس:</span> ${employee.gender}</p>
                             <p><span class="font-medium">رقم الهوية:</span> ${employee.nationalId}</p>
                             <p><span class="font-medium">تاريخ التعيين:</span> ${formatDate(employee.hireDate)}</p>
+                            <p><span class="font-medium">تاريخ انتهاء العقد:</span> ${formatDate(employee.contractEnd)} ${contractStatusHTML}</p>
                             ${employee.subjects ? `<p><span class="font-medium">المواد التي يدرسها:</span> ${employee.subjects}</p>` : ''}
                         </div>
                     </div>
@@ -745,13 +1013,27 @@
             const nameSearch = document.getElementById('search-name').value.trim().toLowerCase();
             const positionSearch = document.getElementById('search-position').value.trim().toLowerCase();
             const departmentSearch = document.getElementById('search-department').value;
+            const genderSearch = document.getElementById('search-gender').value;
+            const contractStatusSearch = document.getElementById('search-contract-status').value;
             
             filteredEmployees = employees.filter(employee => {
                 const nameMatch = !nameSearch || employee.name.toLowerCase().includes(nameSearch);
                 const positionMatch = !positionSearch || employee.position.toLowerCase().includes(positionSearch);
                 const departmentMatch = !departmentSearch || employee.department === departmentSearch;
+                const genderMatch = !genderSearch || employee.gender === genderSearch;
                 
-                return nameMatch && positionMatch && departmentMatch;
+                let contractStatusMatch = true;
+                if (contractStatusSearch) {
+                    if (contractStatusSearch === 'active') {
+                        contractStatusMatch = !isContractExpiring(employee.contractEnd) && !isContractExpired(employee.contractEnd);
+                    } else if (contractStatusSearch === 'expiring') {
+                        contractStatusMatch = isContractExpiring(employee.contractEnd);
+                    } else if (contractStatusSearch === 'expired') {
+                        contractStatusMatch = isContractExpired(employee.contractEnd);
+                    }
+                }
+                
+                return nameMatch && positionMatch && departmentMatch && genderMatch && contractStatusMatch;
             });
             
             displayEmployees(filteredEmployees);
@@ -761,6 +1043,8 @@
             document.getElementById('search-name').value = '';
             document.getElementById('search-position').value = '';
             document.getElementById('search-department').value = '';
+            document.getElementById('search-gender').value = '';
+            document.getElementById('search-contract-status').value = '';
             
             filteredEmployees = [...employees];
             displayEmployees(filteredEmployees);
@@ -771,12 +1055,14 @@
             const dataToExport = employees.map(emp => ({
                 'الاسم': emp.name,
                 'رقم الهوية': emp.nationalId,
+                'الجنس': emp.gender,
                 'المنصب': emp.position,
                 'القسم': emp.department,
                 'رقم الهاتف': emp.phone,
                 'رقم الواتساب': emp.whatsapp,
                 'البريد الإلكتروني': emp.email,
                 'تاريخ التعيين': emp.hireDate,
+                'تاريخ انتهاء العقد': emp.contractEnd,
                 'المواد التي يدرسها': emp.subjects,
                 'المؤهلات': emp.qualifications,
                 'ملاحظات': emp.notes
@@ -788,12 +1074,14 @@
             const cols = [
                 { wch: 25 }, // الاسم
                 { wch: 15 }, // رقم الهوية
+                { wch: 10 }, // الجنس
                 { wch: 20 }, // المنصب
                 { wch: 12 }, // القسم
                 { wch: 15 }, // رقم الهاتف
                 { wch: 15 }, // رقم الواتساب
                 { wch: 25 }, // البريد الإلكتروني
                 { wch: 15 }, // تاريخ التعيين
+                { wch: 15 }, // تاريخ انتهاء العقد
                 { wch: 25 }, // المواد
                 { wch: 30 }, // المؤهلات
                 { wch: 30 }  // ملاحظات
@@ -851,12 +1139,14 @@
                             id: Date.now().toString() + Math.floor(Math.random() * 1000),
                             name: row['الاسم'] || '',
                             nationalId: row['رقم الهوية'] || '',
+                            gender: row['الجنس'] || 'ذكر',
                             position: row['المنصب'] || '',
                             department: row['القسم'] || '',
                             phone: row['رقم الهاتف'] || '',
                             whatsapp: row['رقم الواتساب'] || '',
                             email: row['البريد الإلكتروني'] || '',
                             hireDate: row['تاريخ التعيين'] || new Date().toISOString().split('T')[0],
+                            contractEnd: row['تاريخ انتهاء العقد'] || addMonths(new Date(), 12).toISOString().split('T')[0],
                             subjects: row['المواد التي يدرسها'] || '',
                             qualifications: row['المؤهلات'] || '',
                             notes: row['ملاحظات'] || '',
@@ -966,6 +1256,9 @@
             document.getElementById('close-details').addEventListener('click', closeEmployeeDetails);
             document.getElementById('close-details-btn').addEventListener('click', closeEmployeeDetails);
             
+            // الإشعارات
+            document.getElementById('notification-btn').addEventListener('click', toggleNotificationsPanel);
+            
             // البحث
             document.getElementById('search-btn').addEventListener('click', searchEmployees);
             document.getElementById('reset-search-btn').addEventListener('click', resetSearch);
@@ -1017,6 +1310,30 @@
             
             // محاولة الاتصال بقاعدة البيانات وتحميل البيانات
             await loadEmployees();
+            
+            // إظهار الإشعارات في بداية تشغيل التطبيق إذا وجدت عقود منتهية
+            if (expiringContracts.length > 0) {
+                setTimeout(() => {
+                    // تشغيل تأثير الجرس
+                    document.querySelector('.notification-bell').classList.add('animate');
+                    setTimeout(() => {
+                        document.querySelector('.notification-bell').classList.remove('animate');
+                    }, 1000);
+                    
+                    Swal.fire({
+                        title: 'تنبيه!',
+                        text: `يوجد ${expiringContracts.length} عقد على وشك الانتهاء خلال الشهر القادم`,
+                        icon: 'warning',
+                        confirmButtonText: 'عرض التفاصيل',
+                        showCancelButton: true,
+                        cancelButtonText: 'لاحقاً'
+                    }).then((result) => {
+                        if (result.isConfirmed) {
+                            toggleNotificationsPanel();
+                        }
+                    });
+                }, 1000);
+            }
         }
         
         // تشغيل التطبيق عند تحميل الصفحة
